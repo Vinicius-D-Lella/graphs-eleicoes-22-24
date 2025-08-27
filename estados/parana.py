@@ -2,11 +2,6 @@ import streamlit as st
 import pandas as pd
 import altair as alt
 
-database = pd.read_csv('data\PR_2022.csv', encoding="latin1", sep=",")
-siglas = pd.read_csv('data\SIGLAS-2022.csv', encoding="latin1", sep=",")
-
-st.title('PR 2022 - Candidatos a Deputado Federal')
-
 expo = [
     {"min": 0, "max": 500, "label": "0 - 500"},
     {"min": 501, "max": 1000, "label": "501 - 1000"},
@@ -133,22 +128,44 @@ expo = [
     {"min": 1000001, "max": 3000000, "label": "1000001 - 3000000"},
 ]
 
-for i in range(1, 17):
-    exec(f"col{i * 2 - 1}, col{i * 2} = st.columns(2)")
+titulo , ano = st.columns(2)
+
+with ano:
+    ano_atual = st.selectbox('Selecione o ano:', [2022, 2024])
+with titulo:
+    if ano_atual == 2022:
+        st.title(f'PR 2022 - Candidatos à Deputado Federal')
+    if ano_atual == 2024:
+        st.title(f'PR 2024 - Candidatos à Vereador')
 
 
+database = pd.read_csv(f'data/AC_{ano_atual}.csv', encoding="latin1", sep=",")
+siglas = pd.read_csv(f'data/SIGLAS-{ano_atual}.csv', encoding="latin1", sep=",")
+
+if ano_atual == 2022:
+    for i in range(1, 17):
+        exec(f"col{i * 2 - 1}, col{i * 2} = st.columns(2)")
+else:
+    for i in range(1, 12):
+        exec(f"col{i * 3 - 2}, col{i * 3 - 1}, col{i * 3} = st.columns(3)")
 federais = []
+if ano_atual == 2024:
+    database = database.rename(columns={"NR_CANDIDATO": "NR_VOTAVEL", "NM_URNA_CANDIDATO": "NM_VOTAVEL", "QT_VOTOS_NOMINAIS": "QT_VOTOS"})
 database = database.groupby(['NR_VOTAVEL',"DS_CARGO","NM_VOTAVEL"]).sum({"QT_VOTOS": "sum"})
 database = pd.DataFrame(database)
 for row in database.itertuples():
-    if len(str(row[0][0])) == 4:
-        votos = row[1]
+    if len(str(row[0][0])) == 4 if ano_atual == 2022 else 5:
+        print(row)
+        if ano_atual == 2022:
+            votos = row[1]
+        else:
+            votos = row[2]
         federais.append({
                 "NR_PARTIDO": str(row[0][0])[0:2],
                 "SIGLA": siglas[siglas['NUMERO'] == int(str(row[0][0])[0:2])]['SIGLA'].values[0],
                 "NR_VOTAVEL": row[0][0],
                 "NM_VOTAVEL": row[0][2],
-                "QT_VOTOS": row[1]
+                "QT_VOTOS": votos
             })
 
 federais = pd.DataFrame(federais)
@@ -161,7 +178,6 @@ for partido in partidos:
         "DADOS": federais[federais['NR_PARTIDO'] == partido],
         "TOTAL_VOTOS": federais[federais['NR_PARTIDO'] == partido]['QT_VOTOS'].sum()
     })
-
 federais_por_partido = pd.DataFrame(federais_por_partido)
 federais_por_partido = federais_por_partido.sort_values(by='TOTAL_VOTOS', ascending=False, ignore_index=True)
 for index, partido in federais_por_partido.iterrows():
@@ -209,7 +225,7 @@ for index, partido in federais_por_partido.iterrows():
 
 
     chart = (barras + area  ).resolve_scale(
-    y='independent'   # <<< chave aqui!
+    y='independent'
     ).properties(
     title="Candidatos e quantitade de votos"
     )
