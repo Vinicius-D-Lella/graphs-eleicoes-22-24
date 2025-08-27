@@ -168,9 +168,9 @@ siglas = pd.read_csv(f'data/SIGLAS-{year}.csv', encoding="latin1", sep=",")
 partidos = st.multiselect('Selecione os Partidos', siglas['SIGLA'].values, default=["PT","PL","NOVO","PSOL","UNIÃO"])
 
 if year == "2022":
-    st.title(f"Análise de Candidatos à Dep. Federal - {state} - {year}")
+    st.title(f"Análise de Candidatos a Dep. Federal - {state} - {year}")
 else:
-    st.title(f"Análise de Candidato à Vereador - {state} - {year}")
+    st.title(f"Análise de Candidato a Vereador - {state} Capital - {year}")
 
 federais = []
 if year == "2024":
@@ -215,9 +215,9 @@ for i in range(123):
     if federal_record["QT_VOTOS"] < expo[i]['min']:
         break   
     ranges.append({
-            "Quantidade de Votos": f"{expo[i]['min']} - {expo[i]['max']}",
-            "range": {"min": expo[i]['min'], "max": expo[i]['max']},
-            "candidatos": [],
+        "Quantidade de Votos": f"{expo[i]['min']} - {expo[i]['max']}",
+        "range": {"min": expo[i]['min'], "max": expo[i]['max']},
+        "candidatos": [],
             "Quantidade de Candidatos": 0,
             "Porcentagem de votos até aqui": 0,
             "Votos nesse range": 0
