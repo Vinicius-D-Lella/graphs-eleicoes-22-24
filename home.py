@@ -165,16 +165,24 @@ with selectYear:
 database = pd.read_csv(f'data/{state}_{year}.csv', encoding="latin1", sep=",")
 siglas = pd.read_csv(f'data/SIGLAS-{year}.csv', encoding="latin1", sep=",")
 
-
 partidos = st.multiselect('Selecione os Partidos', siglas['SIGLA'].values, default=["PT","PL","NOVO","PSOL","UNIÃO"])
 
+if year == "2022":
+    st.title(f"Análise de Candidatos à Dep. Federal - {state} - {year}")
+else:
+    st.title(f"Análise de Candidato à Vereador - {state} - {year}")
+
 federais = []
+if year == "2024":
+    database = database.rename(columns={"NR_CANDIDATO": "NR_VOTAVEL", "NM_URNA_CANDIDATO": "NM_VOTAVEL", "QT_VOTOS_NOMINAIS": "QT_VOTOS"})
 database = database.groupby(['NR_VOTAVEL',"DS_CARGO","NM_VOTAVEL"]).sum({"QT_VOTOS": "sum"})
 database = pd.DataFrame(database)
-
 for row in database.itertuples():
-    if len(str(row[0][0])) == 4:
-        votos = row[1]
+    if len(str(row[0][0])) == (4 if year == "2022" else 5):
+        if year == "2022":
+            votos = row[1]
+        else:
+            votos = row[2]
         federais.append({
                 "NR_PARTIDO": str(row[0][0])[0:2],
                 "SIGLA": siglas[siglas['NUMERO'] == int(str(row[0][0])[0:2])]['SIGLA'].values[0],
@@ -182,6 +190,7 @@ for row in database.itertuples():
                 "NM_VOTAVEL": row[0][2],
                 "QT_VOTOS": votos
             })
+        
 
 federais = pd.DataFrame(federais)
 federais = federais[federais['SIGLA'].isin(partidos)]
@@ -194,9 +203,12 @@ for partido in partidos:
         "DADOS": federais[federais['NR_PARTIDO'] == partido],
         "TOTAL_VOTOS": federais[federais['NR_PARTIDO'] == partido]['QT_VOTOS'].sum()
     })
+    
 federais_por_partido = pd.DataFrame(federais_por_partido)
 federais_por_partido = federais_por_partido.sort_values(by='TOTAL_VOTOS', ascending=False, ignore_index=True)
+
 federal_record = federais.sort_values(by='QT_VOTOS', ascending=False, ignore_index=True).loc[0]
+
 ranges = []
 graph_data = []
 for i in range(123):
@@ -258,7 +270,7 @@ st.dataframe(federais_por_partido,
                      "DADOS": None
 
                  })
-st.subheader("Ranking Candidatos Federais escolhidos")
+st.subheader("Ranking Candidatos escolhidos")
 st.dataframe(federais.sort_values(by='QT_VOTOS', ascending=False, ignore_index=True),
                  use_container_width=True,
                  hide_index=True,

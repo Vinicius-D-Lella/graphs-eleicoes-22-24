@@ -1,6 +1,12 @@
 import streamlit as st
 import pandas as pd
 import altair as alt
+
+database = pd.read_csv('data\SP_2022.csv', encoding="latin1", sep=",")
+siglas = pd.read_csv('data\SIGLAS-2022.csv', encoding="latin1", sep=",")
+
+st.title('SP 2022 - Candidatos a Deputado Federal')
+
 expo = [
     {"min": 0, "max": 500, "label": "0 - 500"},
     {"min": 501, "max": 1000, "label": "501 - 1000"},
@@ -127,35 +133,16 @@ expo = [
     {"min": 1000001, "max": 3000000, "label": "1000001 - 3000000"},
 ]
 
-database = pd.read_csv('data\SP_2022.csv', encoding="latin1", sep=",")
-siglas = pd.read_csv('data\SIGLAS-2022.csv', encoding="latin1", sep=",")
+for i in range(1, 17):
+    exec(f"col{i * 2 - 1}, col{i * 2} = st.columns(2)")
 
-title, select = st.columns(2)
-
-with title:
-    st.title('SP 2022 - Candidatos a Deputado Federal')
-
-with select:
-    graph_por_linha, colunas_graph = st.columns(2)
-    with graph_por_linha:
-        selectedlinhas = select.selectbox('selecione quantidade por linha', ["2","3"])
-    with colunas_graph:
-        selectedcolunas = select.selectbox('selecione quantidade de colunas', ["12","32","72", "96",'128',"1024"])
-
-if selectedlinhas == "2":
-    for i in range(1, 17):
-        exec(f"col{i * 2 - 1}, col{i * 2} = st.columns(2)")
-
-if selectedlinhas == "3":
-    for i in range(1, 12):
-        exec(f"col{i * 3 - 2}, col{i * 3 - 1}, col{i * 3} = st.columns(3)")
 
 federais = []
 database = database.groupby(['NR_VOTAVEL',"DS_CARGO","NM_VOTAVEL"]).sum({"QT_VOTOS": "sum"})
 database = pd.DataFrame(database)
-
 for row in database.itertuples():
     if len(str(row[0][0])) == 4:
+        votos = row[1]
         federais.append({
                 "NR_PARTIDO": str(row[0][0])[0:2],
                 "SIGLA": siglas[siglas['NUMERO'] == int(str(row[0][0])[0:2])]['SIGLA'].values[0],
@@ -174,72 +161,86 @@ for partido in partidos:
         "DADOS": federais[federais['NR_PARTIDO'] == partido],
         "TOTAL_VOTOS": federais[federais['NR_PARTIDO'] == partido]['QT_VOTOS'].sum()
     })
+
 federais_por_partido = pd.DataFrame(federais_por_partido)
 federais_por_partido = federais_por_partido.sort_values(by='TOTAL_VOTOS', ascending=False, ignore_index=True)
-
 for index, partido in federais_por_partido.iterrows():
     candidatos = partido['DADOS'].sort_values(by='QT_VOTOS', ascending=False)
     record_votos = candidatos['QT_VOTOS'].max()
     ranges = []
     graph_data = []
-    for i in range(122):
+    for i in range(123):
+        if record_votos < expo[i]['min']:
+            break
+        total = candidatos[candidatos['QT_VOTOS'] <= expo[i]['max']]['QT_VOTOS'].sum()
+        porcentagem = total / candidatos['QT_VOTOS'].sum() * 100
+        porcentagems = str(porcentagem).split(".")
         ranges.append({
             "Quantidade de Votos": f"{expo[i]['min']} - {expo[i]['max']}",
             "range": {"min": expo[i]['min'], "max": expo[i]['max']},
             "candidatos": [],
-            "Quantidade de Candidatos": 0
+            "Quantidade de Candidatos": 0,
+            "Porcentagem de votos até aqui": float(porcentagems[0] + "." + porcentagems[1][0:2]),
+            "Votos nesse range": 0
+
         })
-    st.write(ranges)
     for candidato in candidatos.itertuples():
         for r in ranges:
             if r["range"]["min"] <= candidato.QT_VOTOS <= r["range"]["max"]:
                 r["candidatos"].append(candidato.NM_VOTAVEL)
                 r["Quantidade de Candidatos"] += 1
+                r["Votos nesse range"] += candidato.QT_VOTOS
     ranges = pd.DataFrame(ranges)
-
-for index, partido in federais_por_partido.iterrows():
-    candidatos = partido['DADOS'].sort_values(by='QT_VOTOS', ascending=False)
-    record_votos = candidatos['QT_VOTOS'].max()
-    ranges = []
-    graph_data = []
-    for i in range(122):
-        ranges.append({
-            "Quantidade de Votos": f"{expo[i]['min']} - {expo[i]['max']}",
-            "range": {"min": expo[i]['min'], "max": expo[i]['max']},
-            "candidatos": [],
-            "Quantidade de Candidatos": 0
-        })
-    st.write(ranges)
-    for candidato in candidatos.itertuples():
-        for r in ranges:
-            if r["range"]["min"] <= candidato.QT_VOTOS <= r["range"]["max"]:
-                r["candidatos"].append(candidato.NM_VOTAVEL)
-                r["Quantidade de Candidatos"] += 1
-    ranges = pd.DataFrame(ranges)
-
-    chart = (
+    barras = (
     alt.Chart(ranges)
-    .mark_bar()
+    .mark_bar(opacity=0.7, color="orange")
     .encode(
         x=alt.X("Quantidade de Votos", sort=None),
         y="Quantidade de Candidatos",
-        tooltip=["Quantidade de Votos", "Quantidade de Candidatos"]
+    tooltip=["Quantidade de Votos", "Porcentagem de votos até aqui","Quantidade de Candidatos","Votos nesse range"]
     )
+    )
+
+    area = alt.Chart(ranges).mark_area(opacity=0.3, color="steelblue").encode(
+    x=alt.X("Quantidade de Votos", sort=None),
+    y=alt.Y("Porcentagem de votos até aqui", axis=alt.Axis(title="Votos (%)")),
+    tooltip=["Quantidade de Votos", "Porcentagem de votos até aqui","Quantidade de Candidatos","Votos nesse range"]
+    )
+
+
+    chart = (barras + area  ).resolve_scale(
+    y='independent'   # <<< chave aqui!
+    ).properties(
+    title="Candidatos e quantitade de votos"
     )
     with eval(f'col{str(index + 1)}'):
         st.write(partido['SIGLA'])
         st.altair_chart(chart, use_container_width=True)
+coltemp = federais.pop("NM_VOTAVEL")
+federais.insert(0, "NM_VOTAVEL", coltemp)
+federais = federais.sort_values(by='QT_VOTOS', ascending=False, ignore_index=True)
+graph_partidos, graph_politicos = st.columns(2)
 
-st.write("")
-st.write("")
-st.write("")
-st.dataframe(federais_por_partido,
+with graph_partidos:
+    st.dataframe(federais_por_partido,
                  use_container_width=True,
                  hide_index=True,
                  column_config={
-                     "NR_PARTIDO": "Número do Partido",
+                     "NR_PARTIDO": None,
                      "SIGLA": "Sigla",
                      "TOTAL_VOTOS": "Total de Votos",
                      "DADOS": None
+
+                 })
+
+with graph_politicos:
+    st.dataframe(federais,
+                 hide_index=True,
+                 column_config={
+                     "NM_VOTAVEL": "Nome do Candidato",
+                     "NR_PARTIDO":  None,
+                     "NR_VOTAVEL": None,
+                     "SIGLA": "Sigla",
+                     "QT_VOTOS": "Total de Votos",
 
                  })
