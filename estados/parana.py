@@ -139,7 +139,7 @@ with titulo:
         st.title(f'PR 2024 - Candidatos à Vereador')
 
 
-database = pd.read_csv(f'data/AC_{ano_atual}.csv', encoding="latin1", sep=",")
+database = pd.read_csv(f'data/PR_{ano_atual}.csv', encoding="latin1", sep=",")
 siglas = pd.read_csv(f'data/SIGLAS-{ano_atual}.csv', encoding="latin1", sep=",")
 
 if ano_atual == 2022:
@@ -155,7 +155,6 @@ database = database.groupby(['NR_VOTAVEL',"DS_CARGO","NM_VOTAVEL"]).sum({"QT_VOT
 database = pd.DataFrame(database)
 for row in database.itertuples():
     if len(str(row[0][0])) == 4 if ano_atual == 2022 else 5:
-        print(row)
         if ano_atual == 2022:
             votos = row[1]
         else:
